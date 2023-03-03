@@ -33,6 +33,8 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
+    print(samples.shape)
+    print(samples_.shape)
     c = np.ones(size)
     for i in range(int(2 * eps * size)):
         avg = np.average(samples, axis=0, weights=c)

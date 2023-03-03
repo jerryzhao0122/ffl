@@ -48,9 +48,9 @@ random.seed(2022)
 np.random.seed(5)
 torch.manual_seed(11)
 
-MAL_FEATURE_FILE = './data/%s_mal_feature_10.npy'
-MAL_TARGET_FILE = './data/%s_mal_target_10.npy'
-MAL_TRUE_LABEL_FILE = './data/%s_mal_true_label_10.npy'
+MAL_FEATURE_FILE = '/cloud/zhy/ffl/data/%s_mal_feature_10.npy'
+MAL_TARGET_FILE = '/cloud/zhy/ffl/data/%s_mal_target_10.npy'
+MAL_TRUE_LABEL_FILE = '/cloud/zhy/ffl/data/%s_mal_true_label_10.npy'
 
 if __name__ == '__main__':
 
@@ -68,8 +68,8 @@ if __name__ == '__main__':
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=20)
-    parser.add_argument('--agg', default='mom_ex_noregret', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
-    parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
+    parser.add_argument('--agg', default='ex_noregret', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
+    parser.add_argument('--attack', default='backdoor', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
 
     device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu") 
@@ -82,10 +82,10 @@ if __name__ == '__main__':
                                        torchvision.transforms.Normalize(
                                          (0.1307,), (0.3081,))])
 
-        train_set = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+        train_set = torchvision.datasets.MNIST(root='/home/featurize/data', train=True, download=True, transform=transform)
         # batch_size = len(train_set) // args.nworker
         train_loader = DataLoader(train_set, batch_size=args.batchsize)
-        test_loader = DataLoader(torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform))
+        test_loader = DataLoader(torchvision.datasets.MNIST(root='/home/featurize/data', train=False, download=True, transform=transform))
         mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_FILE%('mnist'), MAL_TRUE_LABEL_FILE%('mnist'), MAL_TARGET_FILE%('mnist'), transform=transform), batch_size=args.batchsize)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -93,10 +93,10 @@ if __name__ == '__main__':
 
     elif args.dataset == 'Fashion-MNIST':
 
-        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
+        train_set = torchvision.datasets.FashionMNIST(root = "/home/featurize/data", train = True, download = True, transform = torchvision.transforms.ToTensor())
         # batch_size = len(train_set) // args.nworker
         train_loader = DataLoader(train_set, batch_size=args.batchsize)
-        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
+        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "/home/featurize/data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
         mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_FILE%('fashion'), MAL_TRUE_LABEL_FILE%('fashion'), MAL_TARGET_FILE%('fashion'), transform=torchvision.transforms.ToTensor()), batch_size=args.batchsize)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -126,7 +126,7 @@ if __name__ == '__main__':
             local_grads[i].append(np.zeros(p.data.shape))
     # print('Malicious node indices:', mal_index, 'Attack Type:', args.attack)
 
-    file_name = './results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
+    file_name = '/cloud/zhy/ffl/results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
     txt_file = open(file_name, 'w') 
 
     for round_idx in range(args.round):
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / args.perround
 
-            np.save('./checkpoints/' + args.agg + 'ben_delta_t%s.npy' % round_idx, average_grad)
+            np.save('/cloud/zhy/ffl/checkpoints/' + args.agg + 'ben_delta_t%s.npy' % round_idx, average_grad)
 
         elif args.attack == 'trimmedmean':
             print('attack trimmedmean')
