@@ -1,29 +1,3 @@
-# BSD 2-Clause License
-
-# Copyright (c) 2022, Lun Wang
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 '''
     Network for several datasets.
 '''
@@ -49,87 +23,86 @@ class ConvNet(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=input_channel, out_channels=filters1, kernel_size=kernel_size, stride=1, padding=padding)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(in_channels=filters1, out_channels=filters2, kernel_size=kernel_size, stride=1, padding=padding)
-        self.fc1 = nn.Linear(filters2 * input_size * input_size // 16, fc_size)
+        self.fc1 = nn.Linear(filters2 * input_size * input_size// 9 , fc_size)
         self.fc2 = nn.Linear(fc_size, classes)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, self.filters2 * self.input_size * self.input_size // 16)
+        x = x.view(-1, self.filters2 * self.input_size * self.input_size // 9)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
 
-class FCs(nn.Module):
-    def __init__(self, in_ch, out_ch, h_ch=1000):
-        super(FCs, self).__init__()
-        self.main = nn.Sequential(
-                nn.Linear(in_ch, h_ch),
-                nn.ReLU(),
-                nn.Linear(h_ch, 100),
-                nn.ReLU(),
-                nn.Linear(100, out_ch),
-            )
+class CNNCifar(nn.Module):
+    def __init__(self, num_classes):
+        super(CNNCifar, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, num_classes)
+        self.dropout = nn.Dropout(p=0.5)
 
     def forward(self, x):
-        return self.main(x)
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(self.dropout(x)))
+        x = F.relu(self.fc2(self.dropout(x)))
+        x = self.fc3(self.dropout(x))
+        return F.log_softmax(x, dim=1)
 
-class NewFCs(nn.Module):
-    def __init__(self, in_ch, out_ch, h_ch=1000):
-        super(NewFCs, self).__init__()
-        self.main = nn.Sequential(
-                nn.Linear(in_ch, h_ch),
-                nn.ReLU(),
-                nn.Linear(h_ch, 100),
-                nn.ReLU(),
-                nn.Linear(100, out_ch),
-            )
 
-    def forward(self, x):
-        return self.main(x)
 
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 2e-4)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(0.0, 2e-4)
-        m.bias.data.fill_(1e-4)
-    elif classname.find('Linear') != -1:
-        m.weight.data.normal_(0.0, 2e-4)
-        m.bias.data.fill_(1e-4)
+class VGG16(nn.Module):
 
-class decoder_fl(nn.Module):
-    def __init__(self, dim, nc=20):
-        super(decoder_fl, self).__init__()
-        self.dim = dim
-        self.fc = NewFCs(nc, dim)
-        self.apply(weights_init)
+    def __init__(self):
+        super(VGG16, self).__init__()
+        # 构建网络的卷积层和池化层，最终输出命名features，原因是通常认为经过这些操作的输出为包含图像空间信息的特征层
+        self.features = self._make_layers(cfg['VGG16'])
 
-    def forward(self, x):
-        return self.fc(x).view(-1, self.dim)
-
-class discriminator_fl(nn.Module):
-    def __init__(self, dim=1, nc=50):
-        super(discriminator_fl, self).__init__()
-        self.dim = dim
-        self.fc = FCs(nc, dim)
-        self.apply(weights_init)
+        # 构建卷积层之后的全连接层以及分类器
+        self.classifier = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(512, 512),  # fc1
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(512, 512),  # fc2
+            nn.ReLU(True),
+            nn.Linear(512, 10),  # fc3，最终cifar10的输出是10类
+        )
+        # 初始化权重
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.bias.data.zero_()
 
     def forward(self, x):
-        h1 = self.fc(x)
-        h2 = torch.sigmoid(h1)
-        return h2.view(-1, self.dim)
+        x = self.features(x)  # 前向传播的时候先经过卷积层和池化层
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)  # 再将features（得到网络输出的特征层）的结果拼接到分类器上
+        return x
 
-class discriminator_wgan(nn.Module):
-    def __init__(self, dim=1, nc=50):
-        super(discriminator_wgan, self).__init__()
-        self.dim = dim
-        self.fc = FCs(nc, dim)
-        self.bn = nn.BatchNorm1d(1)
-        self.apply(weights_init)
+    def _make_layers(self, cfg):
+        layers = []
+        in_channels = 3
+        for v in cfg:
+            if v == 'M':
+                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+            else:
+                # conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+                # layers += [conv2d, nn.ReLU(inplace=True)]
+                layers += [nn.Conv2d(in_channels, v, kernel_size=3, padding=1),
+                           nn.BatchNorm2d(v),
+                           nn.ReLU(inplace=True)]
+                in_channels = v
+        return nn.Sequential(*layers)
 
-    def forward(self, x):
-        h1 = self.bn(self.fc(x))
-        h2 = torch.sigmoid(h1)
-        return h2.view(-1, self.dim)
+def get_model(model_name,device):
+    if model_name == 'CNN':
+        return ConvNet().to(device)
+    elif model_name == 'VGG16':
+        return VGG16().to(device)

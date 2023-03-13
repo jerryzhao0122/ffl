@@ -1,29 +1,3 @@
-# BSD 2-Clause License
-
-# Copyright (c) 2022, Lun Wang
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 '''
     The simulation program for Federated Learning.
 '''
@@ -59,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='MNIST')
     parser.add_argument('--nworker', type=int, default=100)
     parser.add_argument('--perround', type=int, default=20)
-    parser.add_argument('--localiter', type=int, default=2)
+    parser.add_argument('--localiter', type=int, default=10)
     parser.add_argument('--round', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--checkpoint', type=int, default=1)
@@ -69,7 +43,7 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=20)
     parser.add_argument('--agg', default='ex_noregret', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
-    parser.add_argument('--attack', default='backdoor', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
+    parser.add_argument('--attack', default='modelpoisoning', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
 
     device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu") 
@@ -289,7 +263,6 @@ if __name__ == '__main__':
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
-                print('层数：',idx)
                 average_grad[idx] = ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
         elif args.agg == 'mom_ex_noregret':
             print('agg: explicit non-regret')
